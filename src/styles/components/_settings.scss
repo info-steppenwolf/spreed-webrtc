@@ -53,15 +53,37 @@
 }
 
 .settings {
-  background: $settings-background;
-  bottom: 0;
-  left: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 10px;
-  position: absolute;
-  right: 0;
-  top: 0;
+  .modal-dialog {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+  }
+  .modal-content {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+  }
+  .modal-body {
+    position: fixed;
+    overflow-y: auto;
+    min-height: 100px;
+    top: 67px;
+    bottom: 67px;
+    right: 1px;
+    left: 0;
+  }
+  .modal-footer {
+    height: 70px;
+    position: fixed;
+    bottom: -3px;
+    right: 1px;
+    left: 1px;
+  }
+
 }
 
 .settings {

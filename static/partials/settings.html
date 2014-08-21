@@ -1,8 +1,8 @@
-<div class="settings nicescroll">
+<div class="modal-header"><button type="button" class="close" ng-click="$close()">×</button><h3 class="modal-title">{{_('Settings')}}</h3></div>
+<div class="modal-body">
   <div class="version">{{version}}</div>
-  <div class="form-horizontal" on-enter="saveSettings(user)" on-escape="reset()"
+  <div class="form-horizontal" on-enter="saveSettings(user)" on-escape="reset()">
     <fieldset>
-
       <settings-profile>
         <legend>{{_('Profile')}}</legend>
         <div class="form-group">
@@ -188,12 +188,7 @@
           </div>
         </div>
       </div>
-      <div class="form-group">
-        <div class="col-xs-8 col-xs-offset-4">
-          <a ng-click="layout.settings=false" class="btn btn-default">{{_('Close')}}</a>
-        </div>
-      </div>
-
     </fieldset>
   </div>
 </div>
+<div class="modal-footer"><button type="button" class="btn btn-default" ng-click="$close()">{{_("Close")}}</button></div>
