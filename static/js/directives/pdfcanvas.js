@@ -29,6 +29,8 @@ define(['require', 'underscore', 'jquery'], function(require, _, $) {
 		var controller = ['$scope', '$element', '$attrs', function($scope, $element, $attrs) {
 
 			var container = $($element);
+			var targetOrigin = $window.parent.location.origin;
+
 
 			var PDFCanvas = function(scope, canvases) {
 				this.scope = scope;
@@ -102,6 +104,7 @@ define(['require', 'underscore', 'jquery'], function(require, _, $) {
 					this.currentPageNumber = -1;
 					console.log("PDF loaded", doc);
 					scope.$emit("presentationLoaded", source, doc);
+					$window.postMessage({Type: "presentationLoaded", "NumPages": doc.numPages}, targetOrigin)
 				}, this));
 			};
 
@@ -124,6 +127,7 @@ define(['require', 'underscore', 'jquery'], function(require, _, $) {
 				}
 				this.scope.$apply(_.bind(function(scope) {
 					scope.$emit("presentationLoadError", source, loadErrorMessage);
+					$window.postMessage({Type: "presentationLoadError", "ErrorMessage": loadErrorMessage}, targetOrigin)
 				}, this));
 			};
 

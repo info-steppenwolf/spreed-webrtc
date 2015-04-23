@@ -129,6 +129,7 @@ define(['jquery', 'underscore', 'angular', 'bigscreen', 'moment', 'sjcl', 'moder
 		$scope.cameraMute = false;
 		$scope.layout = {
 			main: null,
+			presentation: true
 		};
 		$scope.chatMessagesUnseen = 0;
 		$scope.autoAccept = null;

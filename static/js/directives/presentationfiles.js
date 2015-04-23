@@ -20,22 +20,220 @@
  */
 
 "use strict";
-define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, _, template) {
+define(['angular', 'jquery', 'underscore', 'bigscreen', 'text!partials/presentationfiles.html'], function(angular, $, _, BigScreen, template) {
 
-	return ["$window", "mediaStream", "alertify", "translation", function($window, mediaStream, alertify, translation) {
+	return ["$window", "mediaStream", "fileUpload", "fileDownload", "alertify", "translation", "randomGen", "fileData", function($window, mediaStream, fileUpload, fileDownload, alertify, translation, randomGen, fileData) {
+
+		var SUPPORTED_TYPES = {
+			// rendered by pdfcanvas directive
+			"application/pdf": "pdf",
+			// rendered by odfcanvas directive
+			// TODO(fancycode): check which formats really work, allow all odf for now
+			"application/vnd.oasis.opendocument.text": "odf",
+			"application/vnd.oasis.opendocument.spreadsheet": "odf",
+			"application/vnd.oasis.opendocument.presentation": "odf",
+			"application/vnd.oasis.opendocument.graphics": "odf",
+			"application/vnd.oasis.opendocument.chart": "odf",
+			"application/vnd.oasis.opendocument.formula": "odf",
+			"application/vnd.oasis.opendocument.image": "odf",
+			"application/vnd.oasis.opendocument.text-master": "odf"
+		};
+
+		var BasePresentation = function(scope, fileInfo, token) {
+			this.e = $({});
+			if (scope) {
+				this.scope = scope.$new();
+				this.scope.info = fileInfo;
+			}
+			this.info = fileInfo;
+			if (fileInfo) {
+				this.sortkey = (fileInfo.name || "").toLowerCase();
+				this.type = SUPPORTED_TYPES[fileInfo.type] || "unknown";
+			}
+			this.token = token;
+			this.fileid = null;
+			this.file = null;
+			this.handler = null;
+			this.session = null;
+			this.url = null;
+		};
+
+		BasePresentation.prototype.stop = function() {
+			if (this.handler) {
+				mediaStream.tokens.off(this.token, this.handler);
+				this.handler = null;
+			}
+		};
+
+		BasePresentation.prototype.clear = function() {
+			if (this.fileid) {
+				fileData.purgeFile(this.fileid);
+				this.fileid = null;
+			}
+			this.file = null;
+			this.e.off();
+		};
+
+		var DownloadPresentation = function(scope, fileInfo, token, owner) {
+			BasePresentation.call(this, scope, fileInfo, token);
+			this.owner = owner;
+			this.progress = 0;
+			this.presentable = false;
+			this.downloading = true;
+			this.uploaded = false;
+			this.openCallback = null;
+
+			this.scope.$on("downloadedChunk", _.bind(function(event, idx, byteLength, downloaded, total) {
+				var percentage = Math.ceil((downloaded / total) * 100);
+				this.progress = percentage;
+			}, this));
+
+			this.scope.$on("downloadComplete", _.bind(function(event) {
+				event.stopPropagation();
+				this.progress = 100;
+			}, this));
+
+			this.scope.$on("writeComplete", _.bind(function(event, url, fileInfo) {
+				event.stopPropagation();
+				this.fileid = fileInfo.id;
+				this.file = fileInfo.file;
+				this.url = url;
+				this.downloading = false;
+				this.e.triggerHandler("available", [this, url, fileInfo]);
+				this.stop();
+				if (this.openCallback) {
+					var callback = this.openCallback;
+					this.openCallback = null;
+					this.open(callback);
+				}
+			}, this));
+		};
+
+		DownloadPresentation.prototype = new BasePresentation();
+		DownloadPresentation.prototype.constructor = DownloadPresentation;
+
+		DownloadPresentation.prototype.open = function(callback) {
+			if (this.downloading) {
+				console.log("Presentation download not finished yet, not showing", this);
+				this.openCallback = callback;
+				return;
+			}
+			if (this.url && this.url.indexOf("blob:") === 0) {
+				callback(this.url);
+				return;
+			}
+			if (this.file.hasOwnProperty("writer")) {
+				callback(this.file);
+			} else {
+				this.file.file(function(fp) {
+					callback(fp);
+				});
+			}
+		};
+
+		DownloadPresentation.prototype.browserOpen = function(target) {
+			target = target || "_blank";
+			if (this.downloading) {
+				console.log("Presentation download not finished yet, not opening", this);
+				return;
+			}
+			$window.open(this.url, target);
+		};
+
+		DownloadPresentation.prototype.close = function() {
+			this.openCallback = null;
+		};
+
+		DownloadPresentation.prototype.start = function() {
+			this.handler = mediaStream.tokens.on(this.token, _.bind(function(event, currenttoken, to, data, type, to2, from, xfer) {
+				//console.log("Presentation token request", currenttoken, data, type);
+				fileDownload.handleRequest(this.scope, xfer, data);
+			}, this), "xfer");
+
+			this.session = fileDownload.startDownload(this.scope, this.owner, this.token);
+		};
+
+		DownloadPresentation.prototype.stop = function() {
+			BasePresentation.prototype.stop.call(this);
+			if (this.session) {
+				this.session.cancel();
+				this.session = null;
+			}
+		};
+
+		DownloadPresentation.prototype.clear = function() {
+			this.stop();
+			if (this.scope) {
+				this.scope.$emit("cancelDownload");
+				this.scope.$destroy();
+				this.scope = null;
+			}
+			this.openCallback = null;
+			BasePresentation.prototype.clear.call(this);
+		};
+
+		var UploadPresentation = function(scope, file, token) {
+			BasePresentation.call(this, scope, file.info, token);
+			this.file = file;
+			this.presentable = true;
+			this.uploaded = true;
+			this.fileid = token;
+		};
+
+		UploadPresentation.prototype = new BasePresentation();
+		UploadPresentation.prototype.constructor = UploadPresentation;
+
+		UploadPresentation.prototype.open = function(callback) {
+			callback(this.file);
+		};
+
+		UploadPresentation.prototype.browserOpen = function(target) {
+			target = target || "_blank";
+			if (!this.url) {
+				this.url = URL.createObjectURL(this.file.file);
+			}
+			$window.open(this.url, target);
+		};
+
+		UploadPresentation.prototype.close = function() {
+		};
+
+		UploadPresentation.prototype.start = function() {
+			this.session = fileUpload.startUpload(this.scope, this.token);
+			// This binds the token to transfer and ui.
+			this.handler = mediaStream.tokens.on(this.token, _.bind(function(event, currenttoken, to, data, type, to2, from, xfer) {
+				this.session.handleRequest(this.scope, xfer, data);
+			}, this), "xfer");
+		};
+
+		UploadPresentation.prototype.stop = function() {
+			BasePresentation.prototype.stop.call(this);
+		};
+
+		UploadPresentation.prototype.clear = function() {
+			this.stop();
+			this.close();
+			if (this.scope) {
+				this.scope.$emit("cancelUpload");
+				this.scope.$destroy();
+				this.scope = null;
+			}
+			if (this.url) {
+				URL.revokeObjectURL(this.url);
+				this.url = null;
+			}
+			this.session = null;
+			BasePresentation.prototype.clear.call(this);
+		};
 
 		var controller = ['$scope', '$element', '$attrs', function($scope, $element, $attrs) {
 
-			//temp vars
-			var doc = {};
-			var DownloadPresentation;
-			var SUPPORTED_TYPES;
-			var availablePresentations;
-			//end temp vars
-
 			var presentationsCount = 0;
+			var pane = $element.find(".presentationpane");
 
 			$scope.layout.presentation = true;
+			$scope.layout.buddylist = false;
+			$scope.layout.settings = false;
 			$scope.hideControlsBar = true;
 			$scope.currentPageNumber = -1;
 			$scope.maxPageNumber = -1;
@@ -69,7 +267,11 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 				$scope.loading = false;
 			};
 
-			var presentationLoaded = function(numPages) {
+			$scope.$on("presentationOpening", function(event, presentation) {
+				$scope.loading = true;
+			});
+
+			$scope.$on("presentationLoaded", function(event, source, doc) {
 				$scope.maxPageNumber = doc.numPages;
 				if ($scope.currentPresentation && $scope.currentPresentation.presentable) {
 					$scope.currentPageNumber = 1;
@@ -78,12 +280,12 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 					$scope.pendingPageRequest = null;
 				}
 				$scope.presentationLoaded = true;
-			};
+			});
 
-			var presentationLoadError = function(errorMessage) {
+			$scope.$on("presentationLoadError", function(event, source, errorMessage, moreInfo) {
 				$scope.loading = false;
 				alertify.dialog.alert(errorMessage);
-			};
+			});
 
 			var downloadPresentation = function(fileInfo, from) {
 				var token = fileInfo.id;
@@ -114,6 +316,16 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 				download.start();
 			};
 
+			var fileToInfo = function(file) {
+				var info = {};
+				info.presentable = file.presentable;
+				info.uploaded = file.uploaded;
+				info.downloading = file. downloading;
+				info.progress = file.progress;
+				info.info = angular.extend({}, file.info);
+				return info;
+			}
+
 			var uploadPresentation = function(file) {
 				var token = file.info.id;
 				var existing = $scope.getPresentation(token);
@@ -121,7 +333,13 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 					console.log("Already uploaded presentation", existing);
 					return existing;
 				}
-				$scope.availablePresentations.push(file);
+
+				var upload = new UploadPresentation($scope, file, token);
+				$scope.availablePresentations.push(upload);
+				var info = fileToInfo(upload);
+				$window.postMessage({Type: "uploadPresentation", FileInfo: info}, targetOrigin);
+				upload.start();
+				return upload;
 			};
 
 			mediaStream.api.e.on("received.presentation", function(event, id, from, data, p2p) {
@@ -135,7 +353,7 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 					case "FileInfo":
 						console.log("Received presentation file request", data);
 						$scope.$apply(function(scope) {
-							//downloadPresentation(data.FileInfo, from);
+							downloadPresentation(data.FileInfo, from);
 						});
 						break;
 
@@ -148,7 +366,7 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 								return (!presentation.uploaded && presentation.token === token);
 							});
 							if (existing) {
-								//scope.deletePresentation(existing);
+								scope.deletePresentation(existing);
 							}
 						});
 						break;
@@ -346,6 +564,35 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 				});
 			};
 
+			// create drag-drop target
+			var namespace = "file_" + $scope.id;
+			var binder = fileUpload.bindDrop(namespace, $element, function(files) {
+				console.log("Files dragged", files);
+				filesSelected(files);
+			});
+			binder.namespace = function() {
+				// Inject own id into namespace.
+				return namespace + "_" + $scope.myid;
+			};
+
+			var clickBinder = fileUpload.bindClick(namespace, $element.find('.welcome button')[0], function(files) {
+				console.log("Files selected", files);
+				filesSelected(files);
+			});
+			clickBinder.namespace = function() {
+				// Inject own id into namespace.
+				return namespace + "_" + $scope.myid;
+			};
+
+			var uploadBinder = fileUpload.bindClick(namespace, $element.find('.thumbnail button')[0], function(files) {
+				console.log("Files selected", files);
+				filesSelected(files);
+			});
+			uploadBinder.namespace = function() {
+				// Inject own id into namespace.
+				return namespace + "_" + $scope.myid;
+			};
+
 			$scope.showPresentation = function() {
 				console.log("Presentation active");
 				$scope.layout.presentation = true;
@@ -412,10 +659,13 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 				$scope.doSelectPresentation(presentation);
 			}
 
+			var targetOrigin = location.href; // child iframe
+
 			$scope.doSelectPresentation = function(presentation) {
 				console.log("Selected", presentation);
 				$scope.resetProperties();
 				$scope.currentPresentation = presentation;
+				$window.postMessage({Type: "Selected", PresentationIndex: 0}, targetOrigin);
 			};
 
 			$scope.deletePresentation = function(presentation, $event) {
@@ -446,6 +696,18 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 					$event.preventDefault();
 				}
 				presentation.browserOpen();
+			};
+
+			$scope.toggleFullscreen = function(elem) {
+
+				if (BigScreen.enabled) {
+					if (elem) {
+						BigScreen.toggle(elem);
+					} else {
+						BigScreen.toggle(pane[0]);
+					}
+				}
+
 			};
 
 			$scope.prevPage = function() {
@@ -495,63 +757,46 @@ define(['jquery', 'underscore', 'text!partials/presentation.html'], function($, 
 				});
 			});
 
-			$($window).on("message", function(e) {
-				var event = e.originalEvent;
-				if (event.origin  !== $window.parent.location.origin) {
-					return;
-				}
-				var data = event.data;
-				var type = data && data.Type;
-				switch(type) {
-					case "presentationLoaded":
-						console.log("pdf - presentationLoaded", event);
-						presentationLoaded(data.NumPages);
-						break;
-					case "presentationLoadError":
-						console.log("pdf - presentationLoadError", event);
-						presentationLoadError(data.ErrorMessage);
-						break;
-					case "uploadPresentation":
-						console.log("pdf - uploadPresentation", event);
-						// Get new presentation token and file info and append to availablePresentations
-						uploadPresentation(data.FileInfo);
-						break;
-					case "Selected":
-						console.log("pdf - Selected", event);
-						$scope.selectPresentation(availablePresentations[data.PresentationIndex]);
-						break;
-					case "presentationPageLoadError":
-						break;
-					case "presentationPageRenderError":
-						break;
-					default:
-						console.log("pdf - Error incorrect message type");
-						break;
-				}
-			});
-
-/*			$scope.$watch("layout.presentation", function(newval, oldval) {
-				if (newval && !oldval) {
-					$scope.showPresentation();
-				} else if (!newval && oldval) {
-					$scope.hidePresentation();
-				}
-			});
+			$scope.showPresentation();
 
 			$scope.$watch("layout.main", function(newval, oldval) {
 				if (newval && newval !== "presentation") {
 					$scope.hidePresentation();
 				}
 			});
-*/
+
 		}];
+
+		$($window).on("message", function(e) {
+			var event = e.originalEvent;
+			if (event.origin !== $window.parent.location.origin) {
+				return;
+			}
+			var data = event.data;
+			var type = data && data.Type;
+			switch(type) {
+				case "showPresentation":
+					break;
+				default: 
+					console.log("Unsupported message type.");
+			}
+		});
+
+		var compile = function(tElement, tAttr) {
+			return function(scope, iElement, iAttrs, controller) {
+				$(iElement).on("dblclick", ".canvasContainer", _.debounce(function(event) {
+					scope.toggleFullscreen(event.delegateTarget);
+				}, 100, true));
+			}
+		};
 
 		return {
 			restrict: 'E',
 			replace: false,
 			scope: true,
 			template: template,
-			controller: controller
+			controller: controller,
+			compile: compile
 		};
 
 	}];

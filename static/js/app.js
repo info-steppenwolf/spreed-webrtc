@@ -174,8 +174,12 @@ define([
 		app.directive("spreedWebrtc", [function() {
 			return {
 				restrict: "A",
-				controller: "MediastreamController"
-			}
+				controller: "MediastreamController",
+				link: function($scope, elem, attrs) {
+					elem.toggleClass('withPresentation');
+					elem.toggleClass('mainPresentation');
+				}
+			};
 		}]);
 
 		return app;
