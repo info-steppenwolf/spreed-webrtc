@@ -1,0 +1,51 @@
+
+
+TLS certificate:
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            c7:e2:47:59:1d:53:b1:b1
+    Signature Algorithm: ecdsa-with-SHA256
+        Issuer: CN=spreed-webrtc
+        Validity
+            Not Before: Nov 28 13:03:21 2016 GMT
+            Not After : Nov 26 13:03:21 2026 GMT
+        Subject: CN=spreed-webrtc
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (384 bit)
+                pub:
+                    04:2a:90:12:97:6c:d2:f4:b9:f7:b3:aa:f7:0c:06:
+                    31:95:ce:a7:0c:41:68:e1:ca:4a:ae:ce:56:fe:e0:
+                    0e:30:20:63:ca:92:23:8d:23:cd:58:d1:64:fd:3e:
+                    b4:c0:04:79:ae:fb:64:1c:6a:3d:9f:9e:04:62:9a:
+                    14:08:60:dc:92:1a:3c:d7:b3:d0:07:4b:b4:f7:b7:
+                    70:5e:b9:50:fe:43:5a:95:c8:ec:f3:90:36:1a:2b:
+                    22:e4:e1:89:08:da:2f
+                ASN1 OID: secp384r1
+                NIST CURVE: P-384
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            X509v3 Key Usage:
+                Digital Signature, Non Repudiation, Key Encipherment
+    Signature Algorithm: ecdsa-with-SHA256
+         30:65:02:31:00:b3:be:a1:85:b8:db:dd:67:92:8b:46:17:c0:
+         f4:a0:7a:62:11:5f:24:7e:78:b4:ff:87:38:cd:20:3a:36:c4:
+         84:0c:6a:0f:8c:60:31:d9:7e:29:2f:25:b9:13:42:18:47:02:
+         30:20:cc:43:dc:db:e2:b4:fe:c3:dc:80:8e:19:25:e3:a6:a2:
+         2a:11:21:4a:b3:a9:b7:15:c7:5a:34:75:15:12:6d:33:17:ba:
+         4d:be:0e:67:df:b6:b6:96:15:1a:b8:c7:b6
+-----BEGIN CERTIFICATE-----
+MIIBfjCCAQSgAwIBAgIJAMfiR1kdU7GxMAoGCCqGSM49BAMCMBgxFjAUBgNVBAMM
+DXNwcmVlZC13ZWJydGMwHhcNMTYxMTI4MTMwMzIxWhcNMjYxMTI2MTMwMzIxWjAY
+MRYwFAYDVQQDDA1zcHJlZWQtd2VicnRjMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE
+KpASl2zS9Ln3s6r3DAYxlc6nDEFo4cpKrs5W/uAOMCBjypIjjSPNWNFk/T60wAR5
+rvtkHGo9n54EYpoUCGDckho817PQB0u097dwXrlQ/kNalcjs85A2Gisi5OGJCNov
+oxowGDAJBgNVHRMEAjAAMAsGA1UdDwQEAwIF4DAKBggqhkjOPQQDAgNoADBlAjEA
+s76hhbjb3WeSi0YXwPSgemIRXyR+eLT/hzjNIDo2xIQMag+MYDHZfikvJbkTQhhH
+AjAgzEPc2+K0/sPcgI4ZJeOmoioRIUqzqbcVx1o0dRUSbTMXuk2+DmfftraWFRq4
+x7Y=
+-----END CERTIFICATE-----
+
